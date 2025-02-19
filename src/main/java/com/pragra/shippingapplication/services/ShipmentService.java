@@ -19,7 +19,7 @@ public class ShipmentService {
 
     @Autowired
     // TODO: UserClient class would ready the userDTO from User Application for Shipment's use
-    private UserClient userClient;
+    private UserClient userClient;it
 
     @Autowired
     // TODO: OrderClient class would ready the orderDTO from Order Application for Shipment's use
