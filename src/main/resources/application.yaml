@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: ShippingApplication
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: your-email@gmail.com
+    password: your-app-password
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls.enable: true
+
+  #  Springboot DataSource config
+  datasource:
+    url: jdbc:postgresql://localhost:5432/shipping_db
+    username: shipping_user
+    password: password123
+    driver-class-name: org.postgresql.Driver
+
+  #orm config
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update  # other options: update, create, validate
+    show-sql: true  # Shows the SQL queries in logs
