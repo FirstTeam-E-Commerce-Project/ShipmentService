@@ -1,10 +1,8 @@
 package com.pragra.shippingapplication.services;
 
-import com.pragra.shippingapplication.dto.ShipmentDTO;
-import com.pragra.shippingapplication.dto.ShipmentRequestDTO;
-import com.pragra.shippingapplication.kafka.ShipmentProducer;
-import lombok.Data;
-import org.springframework.stereotype.Service;
+import com.pragra.shippingapplication.client.OrderServiceClient;
+import com.pragra.shippingapplication.dto.ShipmentResponseDTO;
+import com.pragra.shippingapplication.dto.CreateShipmentRequestDTO;
 import com.pragra.shippingapplication.model.Shipment;
 import com.pragra.shippingapplication.repository.ShipmentRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,49 +12,44 @@ import java.util.Date;
 import java.util.Optional;
 import java.util.UUID;
 
-@Data
 @Service
 public class ShipmentService {
-    @Autowired
-    private ShipmentRepository shipmentRepository;
 
-    @Autowired
-    private ShipmentProducer shipmentProducer; // Kafka Producer to send shipment events
+    private final ShipmentRepository shipmentRepository;
+    private final OrderServiceClient orderServiceClient; // Feign Client to communicate with Order Service
 
-    //Creates a new shipment  + publishes event to Kafka. + triggers
+    public ShipmentService(ShipmentRepository shipmentRepository, OrderServiceClient orderServiceClient) {
+        this.shipmentRepository = shipmentRepository;
+        this.orderServiceClient = orderServiceClient;
+    }
 
-    public ShipmentDTO createShipment(ShipmentRequestDTO request) {
+    // CREATES NEW SHIPMENT
+    public ShipmentResponseDTO createShipment(CreateShipmentRequestDTO request) {
         Shipment shipment = new Shipment();
         shipment.setOrderId(request.getOrderId());
-
-        // We generate a unique random identifier (UUID), convert it to a string, make it the shipment's tracking no:
         shipment.setTrackingNumber(UUID.randomUUID().toString());
-
-        shipment.setStatus("Shipped"); // must use enums to do this instead
+        shipment.setStatus("Shipped");
         shipment.setShippedDate(new Date());
-
-        // 5 days delivery estimate. Can make this customizable in a future release.
         shipment.setEstimatedDelivery(new Date(System.currentTimeMillis() + 5L * 24 * 60 * 60 * 1000));
 
-        // shipment added to repo
         shipmentRepository.save(shipment);
 
-        // Publish shipment event to Kafka
-        shipmentProducer.sendShipmentCreatedEvent(shipment);// this method comes from  Kafka Producer Service
+        // Send shipment details to Order Service using Feign Client
+        ShipmentResponseDTO shipmentDTO = mapToDTO(shipment);
+        orderServiceClient.createShipment(shipment.getOrderId(), shipmentDTO);
 
-        // Publish shipment event to Kafka (instead of calling EmailService directly)
-        shipmentProducer.sendShipmentCreatedEvent(shipment);
-
-        return mapToDTO(shipment);
+        return shipmentDTO;
     }
 
-    public ShipmentDTO getShipmentById(Long id) {
-        Shipment shipment = shipmentRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Shipment not found"));
-        return mapToDTO(shipment);
+
+    // READS SHIPMENT
+    public ShipmentResponseDTO getShipmentById(Long id) {
+        return orderServiceClient.getShipmentById(id);
     }
 
-    public Optional<ShipmentDTO> updateShipment(Long id, ShipmentRequestDTO request) {
+
+    //UPDATES SHIPMENT
+    public Optional<ShipmentResponseDTO> updateShipment(Long id, CreateShipmentRequestDTO request) {
         Optional<Shipment> shipmentOpt = shipmentRepository.findById(id);
         if (shipmentOpt.isPresent()) {
             Shipment shipment = shipmentOpt.get();
@@ -67,12 +60,19 @@ public class ShipmentService {
         return Optional.empty();
     }
 
-    public void deleteShipment(Long id) {
-        shipmentRepository.deleteById(id);
+    // DELETES SHIPMENT
+    public boolean deleteShipment(Long id) {
+        Optional<Shipment> shipment = shipmentRepository.findById(id);
+        if (shipment.isPresent()) {
+            shipmentRepository.delete(shipment.get());
+            return true;
+        }
+        return false;
     }
 
-    private ShipmentDTO mapToDTO(Shipment shipment) {
-        return new ShipmentDTO(
+    // ShipmentResponseDTO mapped to Shipment Entity
+    private ShipmentResponseDTO mapToDTO(Shipment shipment) {
+        return new ShipmentResponseDTO(
                 shipment.getId(),
                 shipment.getOrderId(),
                 shipment.getTrackingNumber(),
@@ -80,7 +80,6 @@ public class ShipmentService {
                 shipment.getShippedDate(),
                 shipment.getEstimatedDelivery(),
                 shipment.getUserEmail()
-        );
+        ); /// TODO : TRY USING MODEL MAPPER
     }
 }
-
