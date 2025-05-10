@@ -1,35 +1,35 @@
-package com.pragra.shippingapplication.model;
+package com.pragra.shippingapplication.dto;
 
-
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.Date;
 
 @Data
-@Entity
-@AllArgsConstructor
 @NoArgsConstructor
-public class Shipment {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+public class ShipmentResponseDTO {//Used by Services That READ Shipments
     private Long id;
-
     private Long orderId;
     private String trackingNumber;
-    private String status; // Pending, Shipped, In Transit, Delivered
+    private String status;
     private Date shippedDate;
     private Date estimatedDelivery;
     private String userEmail;
 
+//all args constructor
+    public ShipmentResponseDTO(Long id, Long orderId, String trackingNumber, String status, Date shippedDate, Date estimatedDelivery, String userEmail) {
+        this.id = id;
+        this.orderId = orderId;
+        this.trackingNumber = trackingNumber;
+        this.status = status;
+        this.shippedDate = shippedDate;
+        this.estimatedDelivery = estimatedDelivery;
+        this.userEmail = userEmail;
+    }
 
-    //Getters and Setters because Lombok isn't working
-    public Long getId() {return id;}
+    // Getters and setters
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
     public Long getOrderId() { return orderId; }
     public void setOrderId(Long orderId) { this.orderId = orderId; }
@@ -47,5 +47,7 @@ public class Shipment {
     public void setEstimatedDelivery(Date estimatedDelivery) { this.estimatedDelivery = estimatedDelivery; }
 
     public String getUserEmail() { return userEmail; }
+    public void setUserEmail(String userEmail) { this.userEmail = userEmail; }
+
 
 }

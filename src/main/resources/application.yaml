@@ -1,0 +1,48 @@
+spring:
+  application:
+    name: ShippingApplication
+
+  feign:
+    client:
+      config:
+        default:
+          connectTimeout: 5000
+          readTimeout: 5000
+
+  logging:
+    level:
+      org:
+        springframework:
+          cloud:
+            openfeign: DEBUG
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: demogordon6696@gmail.com
+    password: Demodog666
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/shipment_db
+    username: postgres
+    password: sa
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update  # Other options: update, create, validate
+    show-sql: true  # Shows SQL queries in logs
+
+
+    properties:
+      hibernate:
+        jdbc:
+          lob: non_contextual_creation=true
+
+
+
+

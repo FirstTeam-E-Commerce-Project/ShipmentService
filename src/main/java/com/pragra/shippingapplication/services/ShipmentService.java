@@ -1,77 +1,85 @@
 package com.pragra.shippingapplication.services;
 
-import org.springframework.stereotype.Service;
-import com.pragra.shippingapplication.services.ShipmentService.client.UserClient;
+import com.pragra.shippingapplication.client.OrderServiceClient;
+import com.pragra.shippingapplication.dto.ShipmentResponseDTO;
+import com.pragra.shippingapplication.dto.CreateShipmentRequestDTO;
 import com.pragra.shippingapplication.model.Shipment;
 import com.pragra.shippingapplication.repository.ShipmentRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
 public class ShipmentService {
-    @Autowired
-    private ShipmentRepository shipmentRepository;
 
-    // TODO : Yet to create UserClient OrderService and EmailService.
+    private final ShipmentRepository shipmentRepository;
+    private final OrderServiceClient orderServiceClient; // Feign Client to communicate with Order Service
 
-    @Autowired
-    // TODO: UserClient class would ready the userDTO from User Application for Shipment's use
-    private UserClient userClient;it
+    public ShipmentService(ShipmentRepository shipmentRepository, OrderServiceClient orderServiceClient) {
+        this.shipmentRepository = shipmentRepository;
+        this.orderServiceClient = orderServiceClient;
+    }
 
-    @Autowired
-    // TODO: OrderClient class would ready the orderDTO from Order Application for Shipment's use
-    private OrderClient orderClient;
-
-    // TODO: EmailService would take Shipment out to SMTP servers
-    @Autowired
-    private EmailService emailService;
-
-    public Shipment createShipment(Long orderId, Long userId) {
-
-        // TODO: Must Validate order or retrieve order here from Order microservice before proceeding.
-
+    // CREATES NEW SHIPMENT
+    public ShipmentResponseDTO createShipment(CreateShipmentRequestDTO request) {
         Shipment shipment = new Shipment();
-        shipment.setOrderId(orderId);
-
-        // Here we generate a unique random identifier (UUID), convert it to a string,
-        // and assigns it as the shipment's tracking number
-        shipment.setTrackingNumber(UUID.randomUUID().toString()); //
-
-        shipment.setStatus("Shipped"); // must use enums to do this instead
-
+        shipment.setOrderId(request.getOrderId());
+        shipment.setTrackingNumber(UUID.randomUUID().toString());
+        shipment.setStatus("Shipped");
         shipment.setShippedDate(new Date());
-
-        // 5 days delivery estimate. Can make this customizable in a future release.
-        shipment.setEstimatedDelivery(new Date(System.currentTimeMillis() + 5 * 24 * 60 * 60 * 1000));
-
-        // Get user email from User management microservice
-        String userEmail = userClient.getUserEmail(userId);
-        shipment.setUserEmail(userEmail);
+        shipment.setEstimatedDelivery(new Date(System.currentTimeMillis() + 5L * 24 * 60 * 60 * 1000));
 
         shipmentRepository.save(shipment);
-        emailService.sendShipmentEmail(userEmail, shipment.getTrackingNumber(), shipment.getEstimatedDelivery());
 
-        return shipment;
+        // Send shipment details to Order Service using Feign Client
+        ShipmentResponseDTO shipmentDTO = mapToDTO(shipment);
+        orderServiceClient.createShipment(shipment.getOrderId(), shipmentDTO);
+
+        return shipmentDTO;
     }
 
-    public Shipment getShipmentById(Long id) {
-        return shipmentRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Shipment not found"));
+
+    // READS SHIPMENT
+    public ShipmentResponseDTO getShipmentById(Long id) {
+        return orderServiceClient.getShipmentById(id);
     }
 
-    public Shipment updateShipment(Long id, Long orderId, Long userId) {
-        Shipment shipment = getShipmentById(id);
-        shipment.setOrderId(orderId);
-        // Additional update logic can be added here if needed.
-        shipmentRepository.save(shipment);
-        return shipment;
+
+    //UPDATES SHIPMENT
+    public Optional<ShipmentResponseDTO> updateShipment(Long id, CreateShipmentRequestDTO request) {
+        Optional<Shipment> shipmentOpt = shipmentRepository.findById(id);
+        if (shipmentOpt.isPresent()) {
+            Shipment shipment = shipmentOpt.get();
+            shipment.setOrderId(request.getOrderId());
+            shipmentRepository.save(shipment);
+            return Optional.of(mapToDTO(shipment));
+        }
+        return Optional.empty();
     }
 
-    public void deleteShipment(Long id) {
-        shipmentRepository.deleteById(id);
+    // DELETES SHIPMENT
+    public boolean deleteShipment(Long id) {
+        Optional<Shipment> shipment = shipmentRepository.findById(id);
+        if (shipment.isPresent()) {
+            shipmentRepository.delete(shipment.get());
+            return true;
+        }
+        return false;
+    }
+
+    // ShipmentResponseDTO mapped to Shipment Entity
+    private ShipmentResponseDTO mapToDTO(Shipment shipment) {
+        return new ShipmentResponseDTO(
+                shipment.getId(),
+                shipment.getOrderId(),
+                shipment.getTrackingNumber(),
+                shipment.getStatus(),
+                shipment.getShippedDate(),
+                shipment.getEstimatedDelivery(),
+                shipment.getUserEmail()
+        ); /// TODO : TRY USING MODEL MAPPER
     }
 }
-
